@@ -24,6 +24,15 @@ TYPE_FREE=0
 TYPE_FILE=1
 TYPE_DIR=2
 
+# Standard Default Permissions (Octal)
+DEFAULT_DIR_PERM = 0o755   # rwxr-xr-x
+DEFAULT_FILE_PERM = 0o644  # rw-r--r--
+
+# Permission Bitmasks
+PERM_READ = 0o400   # Owner read
+PERM_WRITE = 0o200  # Owner write
+PERM_EXEC = 0o100   # Owner execute (traversal for directories)
+
 # Inode pointer limits
 NUM_DIRECT_POINTERS=4
 
@@ -32,8 +41,8 @@ NUM_DIRECT_POINTERS=4
 #             inode table start(2B), first data block(2B), padding(498B)
 SUPERBLOCK_FORMAT="<I H H H H H"
 
-# Inode: file type(2B), size(2B), direct ptrs(4*2B = 8B), indirect Ptrs(2B), padding(112B)
-INODE_FORMAT="<H I 4H H"
+# Inode: Perm(2B), file type(2B), size(2B), direct ptrs(4*2B = 8B), indirect Ptrs(2B), padding(112B)
+INODE_FORMAT="<H H I 4H H"
 
 # Directory Entry: inode idx(2B), filename(14B ASCII, null-padded) -> 16B per entry
 DENTRY_FORMAT = "<H 14s"
