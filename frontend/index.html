@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unix Inode File System Visualizer</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #2ea043;
+      --red: #da3633;
+      --yellow: #d29922;
+      --purple: #8957e5;
+      --cyan: #39c5cf;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.4;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    header h1 { font-size: 1.25rem; color: #fff; }
+    header span { font-size: 0.85rem; color: var(--muted); font-family: monospace; }
+    
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .panel h2 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    /* Terminal */
+    #terminal-output {
+      background: #090b0f;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      height: 220px;
+      overflow-y: auto;
+      padding: 10px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      margin-bottom: 8px;
+    }
+    .cmd-row { display: flex; gap: 6px; }
+    input[type="text"] {
+      flex: 1;
+      background: #090b0f;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    button {
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+    button:hover { background: #30363d; }
+    button.primary { background: var(--green); color: #fff; border: none; }
+    button.danger { background: var(--red); color: #fff; border: none; }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .presets button { font-size: 0.75rem; padding: 4px 8px; font-family: monospace; }
+
+    /* Tree View */
+    #tree-box {
+      font-family: monospace;
+      font-size: 0.85rem;
+      background: #090b0f;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* 128 Block Grid */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.78rem;
+      margin-bottom: 10px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .swatch { width: 12px; height: 12px; border-radius: 2px; }
+
+    .disk-grid {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 4px;
+    }
+    .block-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      font-size: 0.7rem;
+      border: 1px solid rgba(255,255,255,0.08);
+      cursor: default;
+      transition: transform 0.1s;
+    }
+    .block-cell:hover { transform: scale(1.12); z-index: 2; border-color: #fff; }
+    .block-owner { font-size: 0.58rem; opacity: 0.85; }
+
+    /* Block Category Colors */
+    .cat-free { background: #1f242c; color: #6e7681; }
+    .cat-superblock { background: var(--red); color: #fff; }
+    .cat-inode_bitmap, .cat-data_bitmap { background: var(--yellow); color: #000; font-weight: bold; }
+    .cat-inode_table { background: var(--purple); color: #fff; }
+    .cat-dir_data { background: var(--cyan); color: #000; font-weight: bold; }
+    .cat-data { background: var(--green); color: #fff; }
+    .cat-indirect_index { background: var(--accent); color: #000; font-weight: bold; }
+
+    /* Bitmaps */
+    .bitmap-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      font-family: monospace;
+      font-size: 0.72rem;
+    }
+    .bit {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      background: #090b0f;
+      border: 1px solid var(--border);
+    }
+    .bit.on { background: var(--green); color: #fff; border-color: var(--green); }
+
+    /* Inode Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Unix-like Inode File System & Block Allocator</h1>
+    <span>virtual_disk.bin | 64 KB (128 Blocks × 512 B) | 32 Inodes | Single-Indirect Indexing</span>
+  </div>
+  <button class="danger" onclick="runCommand('mkfs')">Format Disk (mkfs)</button>
+</header>
+
+<div class="grid-layout">
+  <!-- LEFT COLUMN: TERMINAL & TREE -->
+  <div>
+    <div class="panel">
+      <h2>Shell Interface</h2>
+      <div id="terminal-output">System ready. Type 'help' for supported commands.\n</div>
+      <div class="cmd-row">
+        <input type="text" id="cmd-input" placeholder="e.g., mkdir /docs" onkeydown="if(event.key==='Enter') handleInput()" />
+        <button class="primary" onclick="handleInput()">Run</button>
+      </div>
+      <div class="presets">
+        <button onclick="runCommand('mkdir /docs')">mkdir /docs</button>
+        <button onclick="runCommand('touch /docs/notes.txt')">touch notes.txt</button>
+        <button onclick="runCommand('write /docs/notes.txt Hello OS Viva')">write small</button>
+        <button onclick="runCommand('touch /big.bin')">touch /big.bin</button>
+        <button onclick="runLargeWrite()">write >2KB (Indirect)</button>
+        <button onclick="runCommand('chmod 0400 /docs/notes.txt')">chmod 0400</button>
+        <button onclick="runCommand('cat /docs/notes.txt')">cat notes.txt</button>
+        <button onclick="runCommand('rm /big.bin')">rm /big.bin</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Directory Tree Hierarchy</h2>
+      <div id="tree-box">/</div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: PHYSICAL DISK & INODES -->
+  <div>
+    <div class="panel">
+      <h2>Physical Disk Block Map (Blocks 0 – 127)</h2>
+      <div class="legend">
+        <div class="legend-item"><div class="swatch cat-superblock"></div>Superblock (0)</div>
+        <div class="legend-item"><div class="swatch cat-inode_bitmap"></div>Bitmaps (1–2)</div>
+        <div class="legend-item"><div class="swatch cat-inode_table"></div>Inode Table (3–10)</div>
+        <div class="legend-item"><div class="swatch cat-dir_data"></div>Dir Dentries</div>
+        <div class="legend-item"><div class="swatch cat-data"></div>File Data</div>
+        <div class="legend-item"><div class="swatch cat-indirect_index"></div>Indirect Index</div>
+        <div class="legend-item"><div class="swatch cat-free"></div>Free Block</div>
+      </div>
+      <div class="disk-grid" id="disk-grid"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Free-Space Management (Bit Vectors)</h2>
+      <div style="margin-bottom: 8px; font-size: 0.78rem; color: var(--muted);">Inode Bitmap (32 Inodes):</div>
+      <div class="bitmap-strip" id="inode-bitmap" style="margin-bottom: 12px;"></div>
+      <div style="margin-bottom: 8px; font-size: 0.78rem; color: var(--muted);">Data Block Bitmap (Blocks 11–127):</div>
+      <div class="bitmap-strip" id="data-bitmap"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Active Inode Table (Allocated FCBs)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Inode</th>
+            <th>Type</th>
+            <th>Permissions</th>
+            <th>Size</th>
+            <th>Direct Pointers [0..3]</th>
+            <th>Indirect Ptr</th>
+          </tr>
+        </thead>
+        <tbody id="inode-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const term = document.getElementById('terminal-output');
+  const input = document.getElementById('cmd-input');
+
+  function log(msg, isError = false) {
+    const color = isError ? '#ff7b72' : '#c9d1d9';
+    term.innerHTML += `<span style="color:${color}">${msg}</span>\n`;
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function handleInput() {
+    const val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    runCommand(val);
+  }
+
+  function runLargeWrite() {
+    const payload = 'X'.repeat(2800); // > 2048 bytes triggers indirect index block
+    runCommand(`write /big.bin ${payload}`);
+  }
+
+  async function runCommand(rawCmd) {
+    log(`$ ${rawCmd.length > 60 ? rawCmd.slice(0, 60) + '... [2800B]' : rawCmd}`);
+    const parts = rawCmd.split(' ');
+    const cmd = parts[0];
+
+    try {
+      if (cmd === 'help') {
+        log('Commands:\n  mkfs\n  mkdir <path>\n  touch <path>\n  write <path> <text>\n  cat <path>\n  chmod <octal> <path>\n  rm <path>\n  rmdir <path>');
+        return;
+      }
+      if (cmd === 'mkfs') {
+        const res = await post('/api/format', {});
+        log(res.message);
+      } else if (cmd === 'mkdir') {
+        const res = await post('/api/mkdir', { path: parts[1] });
+        log(res.message);
+      } else if (cmd === 'touch') {
+        const res = await post('/api/touch', { path: parts[1] });
+        log(res.message);
+      } else if (cmd === 'write') {
+        const path = parts[1];
+        const content = parts.slice(2).join(' ');
+        const res = await post('/api/write', { path, content });
+        log(res.message);
+      } else if (cmd === 'cat') {
+        const r = await fetch(`/api/cat?path=${encodeURIComponent(parts[1])}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail);
+        log(data.content);
+      } else if (cmd === 'chmod') {
+        const res = await post('/api/chmod', { mode: parts[1], path: parts[2] });
+        log(res.message);
+      } else if (cmd === 'rm') {
+        const res = await post('/api/rm', { path: parts[1] });
+        log(res.message);
+      } else if (cmd === 'rmdir') {
+        const res = await post('/api/rmdir', { path: parts[1] });
+        log(res.message);
+      } else {
+        log(`Unknown command: ${cmd}`, true);
+      }
+    } catch (err) {
+      log(`Error: ${err.message}`, true);
+    }
+    await refreshState();
+  }
+
+  async function post(url, body) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Request failed');
+    return data;
+  }
+
+  async function refreshState() {
+    const r = await fetch('/api/state');
+    const state = await r.json();
+
+    // 1. Update Tree
+    document.getElementById('tree-box').textContent = state.tree_ascii;
+
+    // 2. Render 128 Disk Blocks
+    const grid = document.getElementById('disk-grid');
+    grid.innerHTML = '';
+    state.blocks.forEach(b => {
+      const div = document.createElement('div');
+      div.className = `block-cell cat-${b.category}`;
+      div.title = `Block ${b.id} (${b.category})` + (b.owner !== null ? ` - Inode ${b.owner}` : '');
+      div.innerHTML = `<span>${b.id}</span>` + (b.owner !== null ? `<span class="block-owner">I:${b.owner}</span>` : '');
+      grid.appendChild(div);
+    });
+
+    // 3. Render Bitmaps
+    renderBitmap('inode-bitmap', state.inode_bitmap, 0);
+    renderBitmap('data-bitmap', state.data_bitmap, 11);
+
+    // 4. Render Active Inodes
+    const tbody = document.getElementById('inode-tbody');
+    tbody.innerHTML = '';
+    state.inodes.filter(i => i.allocated).forEach(ino => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${ino.index}</td>
+        <td>${ino.type === 2 ? 'DIR' : 'FILE'}</td>
+        <td>${ino.permissions}</td>
+        <td>${ino.size} B</td>
+        <td>[${ino.direct.join(', ')}]</td>
+        <td>${ino.indirect || '-'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderBitmap(elId, bits, offset) {
+    const container = document.getElementById(elId);
+    container.innerHTML = '';
+    bits.forEach((bit, idx) => {
+      const div = document.createElement('div');
+      div.className = `bit ${bit ? 'on' : ''}`;
+      div.textContent = bit;
+      div.title = `Index ${idx + offset}: ${bit ? 'Allocated' : 'Free'}`;
+      container.appendChild(div);
+    });
+  }
+
+  // Initial load
+  refreshState();
+</script>
+</body>
+</html>
