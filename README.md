@@ -49,8 +49,7 @@ OS PROJECT - FILE SYSTEM/
 │   └── virtual_disk.bin    # Raw 64 KB binary disk image (auto-generated on startup)
 ├── frontend/
 │   └── index.html          # Interactive shell, 128-block grid visualizer, bitmaps, and Inode table
-└── README.md
-│
+├── README.md
 └── requirements.txt
 ```
 
