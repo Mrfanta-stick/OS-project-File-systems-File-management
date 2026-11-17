@@ -8,9 +8,9 @@ An interactive Operating Systems project that implements a Unix-style Inode file
 
 This implementation models the core on-disk and in-memory structures of a hierarchical file system (based on Silberschatz, Galvin, and Gagne, Chapters 10 and 11):
 
-* **On-Disk File-System Structure:** Physical storage is divided into fixed-size logical blocks ($512\text{ bytes}$ each). Specific regions are reserved for volume metadata (Superblock), free-space bitmaps, File Control Blocks (Inodes), and raw file data.
+* **On-Disk File-System Structure:** Physical storage is divided into fixed-size logical blocks (512 bytes each). Specific regions are reserved for volume metadata (Superblock), free-space bitmaps, File Control Blocks (Inodes), and raw file data.
 * **File Control Blocks (Inodes):** Every file or directory is represented by a fixed-size Inode containing its type, access permissions, byte size, and block pointers. Inodes do not store filenames; filenames are decoupled and stored inside directory entries.
-* **Indexed Allocation (Direct and Single Indirect Pointers):** To prevent external fragmentation while supporting variable file sizes, each Inode maintains $4$ direct block pointers (covering up to $4 \times 512 = 2048\text{ bytes}$) and $1$ single indirect pointer. When a file exceeds $2\text{ KB}$, an additional Index Block is dynamically allocated to store $2\text{-byte}$ addresses for up to $256$ extra data blocks.
+* **Indexed Allocation (Direct and Single Indirect Pointers):** To prevent external fragmentation while supporting variable file sizes, each Inode maintains 4 direct block pointers (covering up to 4 x 512 = 2048 bytes) and 1 single indirect pointer. When a file exceeds 2KB, an additional Index Block is dynamically allocated to store 2-byte addresses for up to 256 extra data blocks.
 * **Free-Space Management (Bit Vectors):** Free and allocated states for both Inodes and Data Blocks are tracked using bitmaps (`0` = free, `1` = allocated). Bitwise operations (`&`, `|`, `~`) locate the first available slot (First-Fit allocation) and reclaim space upon deletion.
 * **Directory Implementation and Path Resolution:** Directories are special files whose data blocks contain a linear list of fixed-size directory entries (`16 bytes` each: a `2-byte` Inode number and a `14-byte` ASCII name). Every directory initializes with self (`.`) and parent (`..`) links to support hierarchical path resolution.
 * **File Protection:** Access control is enforced using POSIX-style octal permission bits (`rwx` for owner, group, and others) stored inside each Inode. Read (`cat`) and write (`write`) system calls validate these permission masks before accessing data blocks.
@@ -19,15 +19,15 @@ This implementation models the core on-disk and in-memory structures of a hierar
 
 ## 2. Virtual Disk Geometry
 
-The virtual storage file (`virtual_disk.bin`) has a total capacity of $64\text{ KB}$, partitioned into $128$ blocks of $512\text{ bytes}$ each:
+The virtual storage file (`virtual_disk.bin`) has a total capacity of 64 KB, partitioned into 128 blocks of 512 bytes each:
 
 | Block Range | Region | Description |
 | :--- | :--- | :--- |
 | Block 0 | Superblock | Stores magic number (`0x53595346`), total block count, block size, total Inode count, and region offsets. |
-| Block 1 | Inode Bitmap | Bit vector tracking allocation status for $32$ Inodes. |
-| Block 2 | Data Block Bitmap | Bit vector tracking allocation status for $117$ usable data blocks. |
-| Blocks 3 to 10 | Inode Table | $8$ blocks ($4096\text{ bytes}$ total) holding $32$ Inodes at $128\text{ bytes}$ per Inode. |
-| Blocks 11 to 127 | Data Blocks | $117$ blocks used for file payloads, directory entries, and indirect index blocks. |
+| Block 1 | Inode Bitmap | Bit vector tracking allocation status for 32 Inodes. |
+| Block 2 | Data Block Bitmap | Bit vector tracking allocation status for 117 usable data blocks. |
+| Blocks 3 to 10 | Inode Table | 8 blocks (4096 bytes total) holding 32 Inodes at 128 bytes per Inode. |
+| Blocks 11 to 127 | Data Blocks | 117 blocks used for file payloads, directory entries, and indirect index blocks. |
 
 ### Binary Struct Layouts (Little-Endian)
 
