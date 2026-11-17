@@ -32,7 +32,7 @@ The virtual storage file (`virtual_disk.bin`) has a total capacity of 64 KB, par
 ### Binary Struct Layouts (Little-Endian)
 
 * **Superblock (`<I H H H H H`):** Magic number (`4B`), total blocks (`2B`), block size (`2B`), total Inodes (`2B`), Inode table start (`2B`), first data block (`2B`).
-* **Inode (`<H H I 4H H`):** File type (`2B`), permission mode (`2B`), size in bytes (`4B`), $4$ direct pointers (`8B`), $1$ indirect pointer (`2B`).
+* **Inode (`<H H I 4H H`):** File type (`2B`), permission mode (`2B`), size in bytes (`4B`), 4 direct pointers (`8B`), 1 indirect pointer (`2B`).
 * **Directory Entry (`<H 14s`):** Target Inode index (`2B`), null-padded filename (`14B`).
 
 ---
