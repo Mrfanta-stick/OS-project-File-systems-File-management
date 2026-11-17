@@ -50,6 +50,8 @@ OS PROJECT - FILE SYSTEM/
 ├── frontend/
 │   └── index.html          # Interactive shell, 128-block grid visualizer, bitmaps, and Inode table
 └── README.md
+│
+└── requirements.txt
 ```
 
 ---
@@ -65,7 +67,7 @@ OS PROJECT - FILE SYSTEM/
 
 1. Install the required Python packages:
    ```bash
-   pip install fastapi uvicorn
+   pip install -r requirements.txt
    ```
 
 2. Navigate to the `backend` directory and launch the server:
@@ -100,7 +102,7 @@ The web dashboard includes an interactive shell supporting the following operati
 * `mkfs` — Formats `virtual_disk.bin`, resets bitmaps, and initializes the root directory `/` at Inode 0.
 * `mkdir <path>` — Creates a new directory with `.` and `..` links (e.g., `mkdir /docs`).
 * `touch <path>` — Allocates a new Inode with default `0644` permissions and links it into the parent directory.
-* `write <path> <text>` — Writes text content to a file, allocating direct blocks and an indirect index block if the payload exceeds $2048\text{ bytes}$.
+* `write <path> <text>` — Writes text content to a file, allocating direct blocks and an indirect index block if the payload exceeds 2048 bytes.
 * `cat <path>` — Reads and displays file contents by traversing direct and indirect pointers (requires read permission).
 * `chmod <octal> <path>` — Updates permission bits on a file or directory (e.g., `chmod 0400 /docs/notes.txt`).
 * `rm <path>` — Deletes a file, frees its direct and indirect data blocks in the bitmap, and clears its Inode.
